@@ -205,6 +205,10 @@ namespace GameMode {
 			}
 		}
 
+		GameState->OnRep_SafeZoneDamage();
+		GameState->OnRep_SafeZoneIndicator();
+		GameState->OnRep_SafeZonePhase();
+
 		return (AFortPlayerPawnAthena*)GameMode->SpawnDefaultPawnAtTransform(Player, Transform);
 	}
 
@@ -283,6 +287,10 @@ namespace GameMode {
 		GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime = UGameplayStatics::GetTimeSeconds(UWorld::GetWorld()) + HoldDuration;
 		GameMode->SafeZoneIndicator->SafeZoneFinishShrinkTime = GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime + Duration;
 		ZoneIndex++;
+
+		GameState->OnRep_SafeZoneDamage();
+		GameState->OnRep_SafeZoneIndicator();
+		GameState->OnRep_SafeZonePhase();
 
 		StartNewSafeZonePhaseOG(GameMode, a2);
 	}

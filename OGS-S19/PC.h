@@ -30,6 +30,8 @@ namespace PC {
 
 	inline void ServerAttemptAircraftJump(UFortControllerComponent_Aircraft* Comp, FRotator Rotation)
 	{
+		AFortGameStateAthena* GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
+
 		auto PC = (AFortPlayerControllerAthena*)Comp->GetOwner();
 		UWorld::GetWorld()->AuthorityGameMode->RestartPlayer(PC);
 
@@ -52,6 +54,12 @@ namespace PC {
 				}
 			}
 		}
+
+		PC->MyFortPawn->OnRep_IsInsideSafeZone();
+
+		GameState->OnRep_SafeZoneDamage();
+		GameState->OnRep_SafeZoneIndicator();
+		GameState->OnRep_SafeZonePhase();
 	}
 
 	inline void (*ClientOnPawnDiedOG)(AFortPlayerControllerAthena*, FFortPlayerDeathReport);

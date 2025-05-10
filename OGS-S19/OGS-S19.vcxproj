@@ -154,6 +154,7 @@
     <ClInclude Include="SDK\SDK\Engine_structs.hpp" />
     <ClInclude Include="SDK\UnrealContainers.hpp" />
     <ClInclude Include="Tick.h" />
+    <ClInclude Include="Vehicles.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
