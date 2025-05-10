@@ -29,24 +29,43 @@ namespace Abilities {
 	}
 
 
-	inline void InternalServerTryActivateAbility(UFortAbilitySystemComponentAthena* AbilitySystemComponent, FGameplayAbilitySpecHandle Handle, bool InputPressed, FPredictionKey& PredictionKey, FGameplayEventData* TriggerEventData) // Broo what is this thing
+	FGameplayAbilitySpec* FindAbilitySpec(UAbilitySystemComponent* AbilitySystemComponent, FGameplayAbilitySpecHandle Handle) {
+
+		for (FGameplayAbilitySpec& Spec : AbilitySystemComponent->ActivatableAbilities.Items) {
+			if (Spec.Handle.Handle == Handle.Handle) {
+				if (!Spec.PendingRemove) {
+					return &Spec;
+				}
+			}
+		}
+
+		return nullptr;
+	}
+
+	void InternalServerTryActivateAbility(UAbilitySystemComponent* AbilitySystemComponent, FGameplayAbilitySpecHandle Handle, bool InputPressed, const struct FPredictionKey& InPredictionKey, FGameplayEventData* TriggerEventData)
 	{
-		FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(AbilitySystemComponent, Handle);
-		if (!Spec)
-			return AbilitySystemComponent->ClientActivateAbilityFailed(Handle, PredictionKey.Current);
-
-
+		FGameplayAbilitySpec* Spec = FindAbilitySpec(AbilitySystemComponent, Handle);
+		if (!Spec) {
+			return AbilitySystemComponent->ClientActivateAbilityFailed(Handle, InPredictionKey.Current);
+		}
 		UGameplayAbility* AbilityToActivate = Spec->Ability;
+
+		if (!AbilityToActivate)
+		{
+			return AbilitySystemComponent->ClientActivateAbilityFailed(Handle, InPredictionKey.Current);
+		}
 
 		UGameplayAbility* InstancedAbility = nullptr;
 		Spec->InputPressed = true;
 
-		if (!InternalTryActivateAbility(AbilitySystemComponent, Handle, PredictionKey, &InstancedAbility, nullptr, TriggerEventData))
-		{
-			AbilitySystemComponent->ClientActivateAbilityFailed(Handle, PredictionKey.Current);
+		if (InternalTryActivateAbility(AbilitySystemComponent, Handle, InPredictionKey, &InstancedAbility, nullptr, TriggerEventData)) {}
+		else {
+
+			AbilitySystemComponent->ClientActivateAbilityFailed(Handle, InPredictionKey.Current);
 			Spec->InputPressed = false;
+
+			AbilitySystemComponent->ActivatableAbilities.MarkItemDirty(*Spec);
 		}
-		AbilitySystemComponent->ActivatableAbilities.MarkItemDirty(*Spec);
 	}
 
 	void Hook()

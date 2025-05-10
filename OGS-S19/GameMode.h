@@ -58,6 +58,8 @@ namespace GameMode {
 			GameState->AirCraftBehavior = Playlist->AirCraftBehavior;
 			GameState->OnRep_Aircraft();
 
+			GameState->DefaultParachuteDeployTraceForGroundDistance = 10000;
+
 			Log("Setup Playlist!");
 		}
 
@@ -195,7 +197,94 @@ namespace GameMode {
 			Log("Pick Doesent Exist!");
 		}
 
+		for (size_t i = 0; i < GameMode->StartingItems.Num(); i++)
+		{
+			if (GameMode->StartingItems[i].Count > 0)
+			{
+				Inventory::GiveItem(PC, GameMode->StartingItems[i].Item, GameMode->StartingItems[i].Count, 0);
+			}
+		}
+
 		return (AFortPlayerPawnAthena*)GameMode->SpawnDefaultPawnAtTransform(Player, Transform);
+	}
+
+	static inline void (*StartNewSafeZonePhaseOG)(AFortGameModeAthena* GameMode, int32 a2);
+	static void StartNewSafeZonePhase(AFortGameModeAthena* GameMode, int32 a2) {
+		Log("StartNewSafeZonePhase Called!");
+		auto GameState = AFortGameStateAthena::GetDefaultObj();
+
+		FFortSafeZoneDefinition* SafeZoneDefinition = &GameState->MapInfo->SafeZoneDefinition;
+
+		static bool bFirstCall = false;
+
+		auto Duration = 30.f;
+		auto HoldDuration = 10.f;
+		static int ZoneIndex = 0;
+
+		switch (ZoneIndex) {
+		case 0:
+			Duration = 105.f;
+			HoldDuration = 30.f;
+			break;
+		case 1:
+			Duration = 120.f;
+			HoldDuration = 110.f;
+			break;
+		case 2:
+			Duration = 90.f;
+			HoldDuration = 110.f;
+			break;
+		case 3:
+			Duration = 95.f;
+			HoldDuration = 95.f;
+			break;
+		case 4:
+			Duration = 90.f;
+			HoldDuration = 90.f;
+			break;
+		case 5:
+			Duration = 50.f;
+			HoldDuration = 70.f;
+			break;
+		case 6:
+			Duration = 50.f;
+			HoldDuration = 70.f;
+			break;
+		case 7:
+			Duration = 50.f;
+			HoldDuration = 70.f;
+			break;
+		case 8:
+			Duration = 35.f;
+			HoldDuration = 60.f;
+			break;
+		case 9:
+			Duration = 20.f;
+			HoldDuration = 60.f;
+			break;
+		case 10:
+			Duration = 55.f;
+			HoldDuration = 60.f;
+			break;
+		case 11:
+			Duration = 50.f;
+			HoldDuration = 60.f;
+			break;
+		case 12:
+			Duration = 80.f;
+			HoldDuration = 60.f;
+			break;
+		default:
+			Duration = 15.f;
+			HoldDuration = 45.f;
+			break;
+		}
+
+		GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime = UGameplayStatics::GetTimeSeconds(UWorld::GetWorld()) + HoldDuration;
+		GameMode->SafeZoneIndicator->SafeZoneFinishShrinkTime = GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime + Duration;
+		ZoneIndex++;
+
+		StartNewSafeZonePhaseOG(GameMode, a2);
 	}
 
 	inline __int64 PickTeam(__int64 a1, unsigned __int8 a2, __int64 a3)
@@ -205,7 +294,11 @@ namespace GameMode {
 
 	void Hook() {
 		MH_CreateHook((LPVOID)(ImageBase + 0x5f9cb9c), ReadyToStartMatch, (LPVOID*)&ReadyToStartMatchOG);
+
 		MH_CreateHook((LPVOID)(ImageBase + 0x5fa1f18), SpawnDefaultPawnFor, nullptr);
+		
+		MH_CreateHook((LPVOID)(ImageBase + 0x5fa67bc), StartNewSafeZonePhase, (LPVOID*)&StartNewSafeZonePhaseOG);
+
 		MH_CreateHook((LPVOID)(ImageBase + 0x5f9b9c8), PickTeam, nullptr);
 
 		Log("Gamemode Hooked!");

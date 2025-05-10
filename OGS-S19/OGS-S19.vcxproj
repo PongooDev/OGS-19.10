@@ -144,6 +144,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="GameMode.h" />
     <ClInclude Include="Inventory.h" />
+    <ClInclude Include="Looting.h" />
     <ClInclude Include="Misc.h" />
     <ClInclude Include="PC.h" />
     <ClInclude Include="SDK\PropertyFixup.hpp" />

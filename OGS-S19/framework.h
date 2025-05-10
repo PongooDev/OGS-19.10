@@ -8,6 +8,7 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <vector>
 #include <map>
 #include "minhook/MinHook.h"
 #include "SDK/SDK.hpp"
@@ -74,6 +75,27 @@ void HookVTable(void* Base, int Idx, void* Detour, void** OG)
 	VirtualProtect(&VTable[Idx], sizeof(void*), oldProtection, NULL);
 }
 
+inline FQuat RotatorToQuat(FRotator Rotation)
+{
+	FQuat Quat;
+	const float DEG_TO_RAD = 3.14159f / 180.0f;
+	const float DIVIDE_BY_2 = DEG_TO_RAD / 2.0f;
+
+	float SP = sin(Rotation.Pitch * DIVIDE_BY_2);
+	float CP = cos(Rotation.Pitch * DIVIDE_BY_2);
+	float SY = sin(Rotation.Yaw * DIVIDE_BY_2);
+	float CY = cos(Rotation.Yaw * DIVIDE_BY_2);
+	float SR = sin(Rotation.Roll * DIVIDE_BY_2);
+	float CR = cos(Rotation.Roll * DIVIDE_BY_2);
+
+	Quat.X = CR * SP * SY - SR * CP * CY;
+	Quat.Y = -CR * SP * CY - SR * CP * SY;
+	Quat.Z = CR * CP * SY - SR * SP * CY;
+	Quat.W = CR * CP * CY + SR * SP * SY;
+
+	return Quat;
+}
+
 template <typename T>
 static inline T* StaticFindObject(std::wstring ObjectName)
 {
@@ -101,6 +123,12 @@ static inline T* StaticLoadObject(const std::string& Name)
 	}
 
 	return Object;
+}
+
+template<typename T>
+T* GetDefaultObject()
+{
+	return (T*)T::StaticClass()->DefaultObject;
 }
 
 static inline FQuat FRotToQuat(FRotator Rotation) {
@@ -132,4 +160,108 @@ inline T* SpawnActor(FVector Loc, FRotator Rot = FRotator(), AActor* Owner = nul
 	Transform.Rotation = FRotToQuat(Rot);
 
 	return (T*)UGameplayStatics::FinishSpawningActor(UGameplayStatics::BeginDeferredActorSpawnFromClass(UWorld::GetWorld(), Class, Transform, Handle, Owner), Transform);
+}
+
+template<typename T>
+static inline T* SpawnAActor(FVector Loc = { 0,0,0 }, FRotator Rot = { 0,0,0 }, AActor* Owner = nullptr)
+{
+	FTransform Transform{};
+	Transform.Scale3D = { 1,1,1 };
+	Transform.Translation = Loc;
+	Transform.Rotation = FRotToQuat(Rot);
+
+	AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(UWorld::GetWorld(), T::StaticClass(), Transform, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn, Owner);
+	return (T*)UGameplayStatics::FinishSpawningActor(NewActor, Transform);
+}
+
+template<typename T>
+static inline T* SpawnActorClass(FVector Loc = { 0,0,0 }, FRotator Rot = { 0,0,0 }, UClass* Class = nullptr, AActor* Owner = nullptr)
+{
+	FTransform Transform{};
+	Transform.Scale3D = { 1,1,1 };
+	Transform.Translation = Loc;
+	Transform.Rotation = RotatorToQuat(Rot);
+
+	AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(UWorld::GetWorld(), Class, Transform, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn, Owner);
+	return (T*)UGameplayStatics::FinishSpawningActor(NewActor, Transform);
+}
+
+template<typename T>
+T* Actors(UClass* Class = T::StaticClass(), FVector Loc = {}, FRotator Rot = {}, AActor* Owner = nullptr)
+{
+	return SpawnActor<T>(Loc, Rot, Owner, Class);
+}
+
+AFortPickupAthena* SpawnPickup(UFortItemDefinition* ItemDef, int OverrideCount, int LoadedAmmo, FVector Loc, EFortPickupSourceTypeFlag SourceType, EFortPickupSpawnSource Source, AFortPawn* Pawn = nullptr)
+{
+	auto SpawnedPickup = Actors<AFortPickupAthena>(AFortPickupAthena::StaticClass(), Loc);
+	SpawnedPickup->bRandomRotation = true;
+
+	auto& PickupEntry = SpawnedPickup->PrimaryPickupItemEntry;
+	PickupEntry.ItemDefinition = ItemDef;
+	PickupEntry.Count = OverrideCount;
+	PickupEntry.LoadedAmmo = LoadedAmmo;
+	PickupEntry.ReplicationKey++;
+	SpawnedPickup->OnRep_PrimaryPickupItemEntry();
+	SpawnedPickup->PawnWhoDroppedPickup = Pawn;
+
+	SpawnedPickup->TossPickup(Loc, Pawn, -1, true, false, SourceType, Source);
+
+	SpawnedPickup->SetReplicateMovement(true);
+	SpawnedPickup->MovementComponent = (UProjectileMovementComponent*)GetDefaultObject<UGameplayStatics>()->SpawnObject(UProjectileMovementComponent::StaticClass(), SpawnedPickup);
+
+	if (SourceType == EFortPickupSourceTypeFlag::Container)
+	{
+		SpawnedPickup->bTossedFromContainer = true;
+		SpawnedPickup->OnRep_TossedFromContainer();
+	}
+
+	return SpawnedPickup;
+}
+
+static AFortPickupAthena* SpawnPickup(FFortItemEntry ItemEntry, FVector Location, EFortPickupSourceTypeFlag PickupSource = EFortPickupSourceTypeFlag::Other, EFortPickupSpawnSource SpawnSource = EFortPickupSpawnSource::Unset)
+{
+	auto Pickup = SpawnPickup(ItemEntry.ItemDefinition, ItemEntry.Count, ItemEntry.LoadedAmmo, Location, PickupSource, SpawnSource);
+	return Pickup;
+}
+
+inline void ShowFoundation(ABuildingFoundation* BuildingFoundation) {
+	if (!BuildingFoundation)
+		return;
+
+	BuildingFoundation->bServerStreamedInLevel = true;
+	BuildingFoundation->DynamicFoundationType = EDynamicFoundationType::Static;
+	BuildingFoundation->OnRep_ServerStreamedInLevel();
+
+	BuildingFoundation->FoundationEnabledState = EDynamicFoundationEnabledState::Enabled;
+	BuildingFoundation->DynamicFoundationRepData.EnabledState = EDynamicFoundationEnabledState::Enabled;
+	BuildingFoundation->DynamicFoundationTransform = BuildingFoundation->GetTransform();
+	BuildingFoundation->OnRep_DynamicFoundationRepData();
+}
+
+template<typename T>
+inline std::vector<T*> GetAllObjectsOfClass(UClass* Class = T::StaticClass())
+{
+	std::vector<T*> Objects{};
+
+	for (int i = 0; i < UObject::GObjects->Num(); ++i)
+	{
+		UObject* Object = UObject::GObjects->GetByIndex(i);
+
+		if (!Object)
+			continue;
+
+		if (Object->GetFullName().contains("Default"))
+			continue;
+
+		if (Object->GetFullName().contains("Test"))
+			continue;
+
+		if (Object->IsA(Class) && !Object->IsDefaultObject())
+		{
+			Objects.push_back((T*)Object);
+		}
+	}
+
+	return Objects;
 }
