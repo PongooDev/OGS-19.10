@@ -3,6 +3,7 @@
 #include "PC.h"
 #include "Inventory.h"
 #include "Abilities.h"
+#include "Looting.h"
 #include "Misc.h"
 #include "Tick.h"
 
@@ -24,6 +25,7 @@ void Hook() {
     PC::Hook();
     Abilities::Hook();
     Inventory::Hook();
+    Looting::Hook();
 
     Misc::Hook();
     Tick::Hook();

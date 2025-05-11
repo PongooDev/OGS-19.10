@@ -593,7 +593,7 @@ namespace UC
 	public:
 		using ElementType = TPair<KeyElementType, ValueElementType>;
 
-	private:
+	public:
 		TSet<ElementType> Elements;
 
 	private:

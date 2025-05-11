@@ -128,6 +128,36 @@ namespace GameMode {
 
 			GameMode->bWorldIsReady = true;
 
+			UCurveTable* AthenaGameDataTable = GameState->AthenaGameDataTable;
+
+			if (AthenaGameDataTable)
+			{
+				static FName DefaultSafeZoneDamageName = FName(UKismetStringLibrary::Conv_StringToName(FString(L"Default.SafeZone.Damage")));
+
+				for (const auto& [RowName, RowPtr] : ((UDataTable*)AthenaGameDataTable)->RowMap)
+				{
+					if (RowName != DefaultSafeZoneDamageName)
+						continue;
+
+					FSimpleCurve* Row = (FSimpleCurve*)RowPtr;
+
+					if (!Row)
+						continue;
+
+					for (auto& Key : Row->Keys)
+					{
+						FSimpleCurveKey* KeyPtr = &Key;
+
+						if (KeyPtr->Time == 0.f)
+						{
+							KeyPtr->Value = 0.f;
+						}
+					}
+
+					Row->Keys.Add(FSimpleCurveKey(1.f, 0.01f));
+				}
+			}
+
 			Log("Listening: 7777");
 			SetConsoleTitleA("OGS 18.40 | Listening: 7777");
 		}

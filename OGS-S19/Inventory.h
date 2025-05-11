@@ -120,6 +120,35 @@ namespace Inventory {
 		return;
 	}
 
+	inline void (*ServerHandlePickupOG)(AFortPlayerPawn* Pawn, AFortPickup* Pickup, float InFlyTime, FVector InStartDirection, bool bPlayPickupSound);
+	inline void ServerHandlePickup(AFortPlayerPawnAthena* Pawn, AFortPickup* Pickup, float InFlyTime, const FVector& InStartDirection, bool bPlayPickupSound)
+	{
+		if (!Pickup || !Pawn || !Pawn->Controller || Pickup->bPickedUp)
+			return;
+
+		AFortPlayerControllerAthena* PC = (AFortPlayerControllerAthena*)Pawn->Controller;
+
+		UFortItemDefinition* Def = Pickup->PrimaryPickupItemEntry.ItemDefinition;
+		FFortItemEntry* FoundEntry = nullptr;
+		FFortItemEntry& PickupEntry = Pickup->PrimaryPickupItemEntry;
+		bool Stackable = Def->IsStackable();
+		UFortItemDefinition* PickupItemDef = PickupEntry.ItemDefinition;
+		bool Found = false;
+		FFortItemEntry* GaveEntry = nullptr;
+
+		GiveItem(PC, Pickup->PrimaryPickupItemEntry.ItemDefinition, Pickup->PrimaryPickupItemEntry.Count, Pickup->PrimaryPickupItemEntry.LoadedAmmo);
+
+		Pickup->PickupLocationData.bPlayPickupSound = true;
+		Pickup->PickupLocationData.FlyTime = 0.3f;
+		Pickup->PickupLocationData.ItemOwner = Pawn;
+		Pickup->PickupLocationData.PickupGuid = Pickup->PrimaryPickupItemEntry.ItemGuid;
+		Pickup->PickupLocationData.PickupTarget = Pawn;
+		Pickup->OnRep_PickupLocationData();
+
+		Pickup->bPickedUp = true;
+		Pickup->OnRep_bPickedUp();
+	}
+
 	void Hook() {
 		HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 0x22c, ServerExecuteInventoryItem, nullptr);
 

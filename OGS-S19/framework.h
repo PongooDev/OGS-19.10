@@ -265,3 +265,31 @@ inline std::vector<T*> GetAllObjectsOfClass(UClass* Class = T::StaticClass())
 
 	return Objects;
 }
+
+std::map<AFortPickup*, float> PickupLifetimes;
+AFortPickupAthena* SpawnStack(APlayerPawn_Athena_C* Pawn, UFortItemDefinition* Def, int Count, bool giveammo = false, int ammo = 0)
+{
+	auto Statics = (UGameplayStatics*)UGameplayStatics::StaticClass()->DefaultObject;
+
+	FVector Loc = Pawn->K2_GetActorLocation();
+	AFortPickupAthena* Pickup = Actors<AFortPickupAthena>(AFortPickupAthena::StaticClass(), Loc);
+	Pickup->bReplicates = true;
+	PickupLifetimes[Pickup] = Statics->GetTimeSeconds(UWorld::GetWorld());
+	Pickup->PawnWhoDroppedPickup = Pawn;
+	Pickup->PrimaryPickupItemEntry.Count = Count;
+	Pickup->PrimaryPickupItemEntry.ItemDefinition = Def;
+	if (giveammo)
+	{
+		Pickup->PrimaryPickupItemEntry.LoadedAmmo = ammo;
+	}
+	Pickup->PrimaryPickupItemEntry.ReplicationKey++;
+
+	Pickup->OnRep_PrimaryPickupItemEntry();
+	Pickup->TossPickup(Loc, Pawn, 6, true, true, EFortPickupSourceTypeFlag::Other, EFortPickupSpawnSource::Unset);
+
+	Pickup->MovementComponent = (UProjectileMovementComponent*)Statics->SpawnObject(UProjectileMovementComponent::StaticClass(), Pickup);
+	Pickup->MovementComponent->bReplicates = true;
+	((UProjectileMovementComponent*)Pickup->MovementComponent)->SetComponentTickEnabled(true);
+
+	return Pickup;
+}
