@@ -159,7 +159,7 @@ namespace GameMode {
 			}
 
 			Log("Listening: 7777");
-			SetConsoleTitleA("OGS 18.40 | Listening: 7777");
+			SetConsoleTitleA("OGS 19.10 | Listening: 7777");
 		}
 
 		if (GameState->PlayersLeft > 0)
