@@ -330,7 +330,7 @@ namespace PC {
 
 		HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 589, ServerCreateBuildingActor, nullptr);
 
-		HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 487, ServerPlayEmoteItem, nullptr);
+		//HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 487, ServerPlayEmoteItem, nullptr);
 
 		HookVTable(AFortPlayerControllerAthena::StaticClass(), 647, ServerReturnToMainMenu, nullptr);
 
