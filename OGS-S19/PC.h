@@ -1,6 +1,7 @@
 #pragma once
 #include "framework.h"
 #include "Looting.h"
+#include "Vehicles.h"
 
 namespace PC {
 	void (*ServerAcknowledgePossessionOG)(AFortPlayerControllerAthena* PC, APawn* Pawn);
@@ -23,6 +24,8 @@ namespace PC {
 		static bool setupWorld = false;
 		if (!setupWorld) {
 			Looting::DestroyFloorLootSpawners();
+
+			Vehicles::SpawnVehicles();
 		}
 
 		return ServerReadyToStartMatchOG(PC);
@@ -104,6 +107,20 @@ namespace PC {
 		return ClientOnPawnDiedOG(DeadPC, DeathReport);
 	}
 
+	static void ServerSendZiplineState(AFortPlayerPawnAthena* Pawn, FZiplinePawnState State)
+	{
+		Log("ServerSendZiplineState Called!");
+		Pawn->ZiplineState = State;
+
+		if (State.bJumped)
+		{
+			auto Velocity = Pawn->CharacterMovement->Velocity;
+			auto VelocityX = Velocity.X * -0.5f;
+			auto VelocityY = Velocity.Y * -0.5f;
+			Pawn->LaunchCharacterJump({ VelocityX >= -750 ? fminf(VelocityX, 750) : -750, VelocityY >= -750 ? fminf(VelocityY, 750) : -750, 1200 }, false, false, true, true);
+		}
+	}
+
 	void Hook() {
 		HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 0x122, ServerAcknowledgePossession, (LPVOID*)&ServerAcknowledgePossessionOG);
 
@@ -112,6 +129,8 @@ namespace PC {
 		HookVTable(UFortControllerComponent_Aircraft::GetDefaultObj(), 0x9e, ServerAttemptAircraftJump, nullptr);
 
 		MH_CreateHook((LPVOID)(ImageBase + 0x6c26888), ClientOnPawnDied, (LPVOID*)&ClientOnPawnDiedOG);
+
+		MH_CreateHook((LPVOID)(ImageBase + 0x673363c), ServerSendZiplineState, nullptr);
 
 		Log("PC Hooked!");
 	}

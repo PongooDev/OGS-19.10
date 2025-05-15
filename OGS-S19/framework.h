@@ -10,8 +10,19 @@
 #include <chrono>
 #include <vector>
 #include <map>
+#include <algorithm>
+#include <numeric>
+#include <intrin.h>
+#include <sstream>
+#include <array>
+#include <tlhelp32.h>
+#include <future>
+#include <set>
 #include "minhook/MinHook.h"
 #include "SDK/SDK.hpp"
+
+template <class X, class Y>
+using xmap = std::map<X, Y, std::less<X>, std::allocator<std::pair<const X, Y>>>;
 
 #pragma comment(lib, "minhook/minhook.lib")
 
@@ -239,6 +250,20 @@ inline void ShowFoundation(ABuildingFoundation* BuildingFoundation) {
 	BuildingFoundation->OnRep_DynamicFoundationRepData();
 }
 
+template <typename T = AActor>
+static TArray<T*> GetAll(UClass* Class)
+{
+	TArray<AActor*> ret;
+	UGameplayStatics::GetAllActorsOfClass(UWorld::Get(), Class, &ret);
+	return ret;
+}
+
+template <typename T = AActor>
+static TArray<T*> GetAll()
+{
+	return GetAll<T>(T::StaticClass());
+}
+
 template<typename T>
 inline std::vector<T*> GetAllObjectsOfClass(UClass* Class = T::StaticClass())
 {
@@ -292,4 +317,12 @@ AFortPickupAthena* SpawnStack(APlayerPawn_Athena_C* Pawn, UFortItemDefinition* D
 	((UProjectileMovementComponent*)Pickup->MovementComponent)->SetComponentTickEnabled(true);
 
 	return Pickup;
+}
+
+static int32 EvaluateMinMaxPercent(FScalableFloat Min, FScalableFloat Max, int32 Count)
+{
+	float AmmoSpawnMin = Min.Value, AmmoSpawnMax = Max.Value;
+	auto OutVal = (int)(AmmoSpawnMax - AmmoSpawnMin) == 0 ? 0 : Count * (rand() % (int)(AmmoSpawnMax - AmmoSpawnMin));
+	OutVal += Count * (100 - (int)AmmoSpawnMax) / 100;
+	return OutVal;
 }

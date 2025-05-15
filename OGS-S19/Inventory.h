@@ -234,17 +234,29 @@ namespace Inventory {
 		if (!PC || !PC->MyFortPawn)
 			return;
 
-		for (size_t i = 0; i < PC->WorldInventory->Inventory.ReplicatedEntries.Num(); i++)
+		for (int32 i = 0; i < PC->WorldInventory->Inventory.ReplicatedEntries.Num(); i++)
 		{
-			if (!PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition)
-				continue;
-
-			FGuid ItemGuid = PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemGuid;
-			if (CompareGuids(Guid, ItemGuid)) {
-				UFortWeaponItemDefinition* ItemDef = (UFortWeaponItemDefinition*)PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition;
+			if (CompareGuids(PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemGuid, Guid))
+			{
+				UFortWeaponItemDefinition* DefToEquip = (UFortWeaponItemDefinition*)PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition;
 				FGuid TrackerGuid = PC->WorldInventory->Inventory.ReplicatedEntries[i].TrackerGuid;
-
-				PC->MyFortPawn->EquipWeaponDefinition(ItemDef, Guid, TrackerGuid, false);
+				if (PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition->IsA(UFortGadgetItemDefinition::StaticClass()))
+				{
+					DefToEquip = ((UFortGadgetItemDefinition*)PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition)->GetWeaponItemDefinition();
+				}
+				else if (PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition->IsA(UFortDecoItemDefinition::StaticClass())) {
+					auto DecoItemDefinition = (UFortDecoItemDefinition*)PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition;
+					PC->MyFortPawn->PickUpActor(nullptr, DecoItemDefinition);
+					PC->MyFortPawn->CurrentWeapon->ItemEntryGuid = Guid;
+					static auto FortDecoTool_ContextTrapStaticClass = StaticLoadObject<UClass>("/Script/FortniteGame.FortDecoTool_ContextTrap");
+					if (PC->MyFortPawn->CurrentWeapon->IsA(FortDecoTool_ContextTrapStaticClass))
+					{
+						reinterpret_cast<AFortDecoTool_ContextTrap*>(PC->MyFortPawn->CurrentWeapon)->ContextTrapItemDefinition = (UFortContextTrapItemDefinition*)PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemDefinition;
+					}
+					return;
+				}
+				PC->MyFortPawn->EquipWeaponDefinition(DefToEquip, Guid, TrackerGuid, false);
+				break;
 			}
 		}
 
@@ -286,6 +298,48 @@ namespace Inventory {
 		}
 
 		return ItemNb >= 5;
+	}
+
+	void ModifyEntry(AFortPlayerControllerAthena* PC, FFortItemEntry& Entry)
+	{
+		for (int32 i = 0; i < PC->WorldInventory->Inventory.ItemInstances.Num(); i++)
+		{
+			if (CompareGuids(PC->WorldInventory->Inventory.ItemInstances[i]->ItemEntry.ItemGuid, Entry.ItemGuid))
+			{
+				PC->WorldInventory->Inventory.ItemInstances[i]->ItemEntry = Entry;
+				PC->WorldInventory->Inventory.MarkItemDirty(PC->WorldInventory->Inventory.ReplicatedEntries[i]);
+				break;
+			}
+		}
+	}
+
+	void UpdateLoadedAmmo(AFortPlayerController* PC, AFortWeapon* Weapon)
+	{
+		for (int32 i = 0; i < PC->WorldInventory->Inventory.ReplicatedEntries.Num(); i++)
+		{
+			if (CompareGuids(PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemGuid, Weapon->ItemEntryGuid))
+			{
+				PC->WorldInventory->Inventory.ReplicatedEntries[i].LoadedAmmo = Weapon->AmmoCount;
+				UpdateInventory((AFortPlayerControllerAthena*)PC, PC->WorldInventory->Inventory.ReplicatedEntries[i]);
+				PC->WorldInventory->Inventory.MarkItemDirty(PC->WorldInventory->Inventory.ReplicatedEntries[i]);
+				break;
+			}
+		}
+	}
+
+	void UpdateLoadedAmmo(AFortPlayerController* PC, AFortWeapon* Weapon, int AmountToAdd)
+	{
+		for (int32 i = 0; i < PC->WorldInventory->Inventory.ReplicatedEntries.Num(); i++)
+		{
+			if (CompareGuids(PC->WorldInventory->Inventory.ReplicatedEntries[i].ItemGuid, Weapon->ItemEntryGuid))
+			{
+				PC->WorldInventory->Inventory.ReplicatedEntries[i].LoadedAmmo += AmountToAdd;
+				ModifyEntry((AFortPlayerControllerAthena*)PC, PC->WorldInventory->Inventory.ReplicatedEntries[i]);
+				UpdateInventory((AFortPlayerControllerAthena*)PC, PC->WorldInventory->Inventory.ReplicatedEntries[i]);
+				PC->WorldInventory->Inventory.MarkItemDirty(PC->WorldInventory->Inventory.ReplicatedEntries[i]);
+				break;
+			}
+		}
 	}
 
 	//having 2 of these seems wrong
@@ -476,7 +530,6 @@ namespace Inventory {
 
 	inline void ServerAttemptInventoryDrop(AFortPlayerControllerAthena* PC, FGuid ItemGuid, int Count, bool bTrash)
 	{
-		Log("ServerAttemptInventoryDrop Called!");
 		if (Count < 1)
 			return;
 		if (!PC || !PC->Pawn || !PC->WorldInventory)
@@ -487,13 +540,28 @@ namespace Inventory {
 		RemoveItem(PC, ItemGuid, Count);
 	}
 
+	inline void (*NetMulticast_Athena_BatchedDamageCuesOG)(AFortPlayerPawnAthena* Pawn, FAthenaBatchedDamageGameplayCues_Shared SharedData, FAthenaBatchedDamageGameplayCues_NonShared NonSharedData);
+	void NetMulticast_Athena_BatchedDamageCues(AFortPlayerPawnAthena* Pawn, FAthenaBatchedDamageGameplayCues_Shared SharedData, FAthenaBatchedDamageGameplayCues_NonShared NonSharedData)
+	{
+		Log("NetMulticast_Athena_BatchedDamageCues Called!");
+		if (!Pawn)
+			return;
+
+		if (Pawn->CurrentWeapon)
+			UpdateLoadedAmmo((AFortPlayerController*)Pawn->Controller, ((AFortPlayerPawn*)Pawn)->CurrentWeapon);
+
+		//return NetMulticast_Athena_BatchedDamageCuesOG(Pawn, SharedData, NonSharedData);
+	}
+
 	void Hook() {
 		HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 0x22c, ServerExecuteInventoryItem, nullptr);
 
 		HookVTable(APlayerPawn_Athena_C::GetDefaultObj(), 0x220, ServerHandlePickup, (LPVOID*)&ServerHandlePickupOG);
 
-		//HookVTable(AAthena_PlayerController_C::GetDefaultObj(), 0x23A, ServerAttemptInventoryDrop, nullptr); Silent Crashes gs
+		HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 0x23A, ServerAttemptInventoryDrop, nullptr);
 		//MH_CreateHook((LPVOID)(ImageBase + 0xbe8550), ServerAttemptInventoryDrop, nullptr);
+
+		MH_CreateHook((LPVOID)(ImageBase + 0x1341194), NetMulticast_Athena_BatchedDamageCues, (LPVOID*)&NetMulticast_Athena_BatchedDamageCuesOG);
 
 		Log("Inventory Hooked!");
 	}
