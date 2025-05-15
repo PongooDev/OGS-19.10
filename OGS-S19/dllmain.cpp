@@ -3,9 +3,11 @@
 #include "PC.h"
 #include "Inventory.h"
 #include "Abilities.h"
+#include "Net.h"
 #include "Looting.h"
 #include "Misc.h"
 #include "Tick.h"
+#include "Globals.h"
 
 void InitConsole() {
     AllocConsole();
@@ -16,7 +18,12 @@ void InitConsole() {
 }
 
 void LoadWorld() {
-    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Artemis_Terrain", nullptr);
+    if (!Globals::bCreativeEnabled && !Globals::bSTWEnabled) {
+        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Artemis_Terrain", nullptr);
+    }
+    else if (Globals::bCreativeEnabled) {
+        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Creative_NoApollo_Terrain", nullptr);
+    }
     UWorld::GetWorld()->OwningGameInstance->LocalPlayers.Remove(0);
 }
 
@@ -28,6 +35,7 @@ void Hook() {
     Looting::Hook();
 
     Misc::Hook();
+    Net::Hook();
     Tick::Hook();
 
     Sleep(1000);

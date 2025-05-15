@@ -553,6 +553,11 @@ namespace Inventory {
 		//return NetMulticast_Athena_BatchedDamageCuesOG(Pawn, SharedData, NonSharedData);
 	}
 
+	__int64 (*OnReloadOG)(AFortWeapon* Weapon, int RemoveCount);
+	__int64 OnReload(AFortWeapon* Weapon, int RemoveCount) {
+		Log("OnReload Called!");
+	}
+
 	void Hook() {
 		HookVTable(AFortPlayerControllerAthena::GetDefaultObj(), 0x22c, ServerExecuteInventoryItem, nullptr);
 
@@ -562,6 +567,8 @@ namespace Inventory {
 		//MH_CreateHook((LPVOID)(ImageBase + 0xbe8550), ServerAttemptInventoryDrop, nullptr);
 
 		MH_CreateHook((LPVOID)(ImageBase + 0x1341194), NetMulticast_Athena_BatchedDamageCues, (LPVOID*)&NetMulticast_Athena_BatchedDamageCuesOG);
+
+		//MH_CreateHook((LPVOID)(ImageBase + 0x122EDEC), OnReload, (LPVOID*)&OnReloadOG);
 
 		Log("Inventory Hooked!");
 	}

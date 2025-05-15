@@ -2,8 +2,13 @@
 #include "framework.h"
 #include "Inventory.h"
 #include "Abilities.h"
+#include "Globals.h"
 
 namespace GameMode {
+	uint8 NextIdx = 3;
+	int CurrentPlayersOnTeam = 0;
+	int MaxPlayersOnTeam = 1;
+
 	inline bool (*ReadyToStartMatchOG)(AFortGameModeAthena* GameMode);
 	inline bool ReadyToStartMatch(AFortGameModeAthena* GameMode) {
 		AFortGameStateAthena* GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
@@ -11,8 +16,13 @@ namespace GameMode {
 		static bool SetupPlaylist = false;
 		if (!SetupPlaylist) {
 			SetupPlaylist = true;
-			//UFortPlaylistAthena* Playlist = UObject::FindObject<UFortPlaylistAthena>("Playlist_DefaultSolo.Playlist_DefaultSolo"); Doesent work for some reason idk
-			UFortPlaylistAthena* Playlist = StaticLoadObject<UFortPlaylistAthena>("/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo");
+			UFortPlaylistAthena* Playlist;
+			if (Globals::bCreativeEnabled) {
+				Playlist = StaticLoadObject<UFortPlaylistAthena>("/Game/Athena/Playlists/Creative/Playlist_PlaygroundV2.Playlist_PlaygroundV2");
+			}
+			else {
+				Playlist = StaticLoadObject<UFortPlaylistAthena>("/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo");
+			}
 			if (!Playlist) {
 				Log("Could not find playlist!");
 				return false;
@@ -34,6 +44,9 @@ namespace GameMode {
 			GameMode->bAlwaysDBNO = Playlist->MaxTeamSize > 1;
 			GameState->bDBNODeathEnabled = Playlist->MaxTeamSize > 1;
 			GameState->SetIsDBNODeathEnabled(Playlist->MaxTeamSize > 1);
+
+			NextIdx = Playlist->DefaultFirstTeam;
+			MaxPlayersOnTeam = Playlist->MaxSquadSize;
 
 			GameMode->GameSession->MaxPlayers = Playlist->MaxPlayers;
 			GameMode->GameSession->MaxSpectators = 0;
@@ -200,20 +213,19 @@ namespace GameMode {
 		UFortKismetLibrary::UpdatePlayerCustomCharacterPartsVisualization(PlayerState);
 		PlayerState->OnRep_CharacterData();
 
-		PlayerState->SquadId = PlayerState->TeamIndex - 2;
+		PlayerState->SquadId = PlayerState->TeamIndex - 3;
 		PlayerState->OnRep_SquadId();
-		PlayerState->OnRep_TeamIndex(0);
-		PlayerState->OnRep_PlayerTeam();
-		PlayerState->OnRep_PlayerTeamPrivate();
 
-		FGameMemberInfo Info{ -1, -1, -1 };
-		Info.MemberUniqueId = PlayerState->UniqueId;
-		Info.SquadId = PlayerState->SquadId;
-		Info.TeamIndex = PlayerState->TeamIndex;
+		FGameMemberInfo Member;
+		Member.MostRecentArrayReplicationKey = -1;
+		Member.ReplicationID = -1;
+		Member.ReplicationKey = -1;
+		Member.TeamIndex = PlayerState->TeamIndex;
+		Member.SquadId = PlayerState->SquadId;
+		Member.MemberUniqueId = PlayerState->UniqueId;
 
-		GameState->GameMemberInfoArray.Members.Add(Info);
-
-		GameState->GameMemberInfoArray.MarkItemDirty(Info);
+		GameState->GameMemberInfoArray.Members.Add(Member);
+		GameState->GameMemberInfoArray.MarkItemDirty(Member);
 
 		UAthenaPickaxeItemDefinition* PickDef;
 		FFortAthenaLoadout& CosmecticLoadoutPC = PC->CosmeticLoadoutPC;
@@ -226,6 +238,7 @@ namespace GameMode {
 		else {
 			Log("Pick Doesent Exist!");
 		}
+		//Pawn->CosmeticLoadout = PC->CosmeticLoadoutPC;
 
 		for (size_t i = 0; i < GameMode->StartingItems.Num(); i++)
 		{
@@ -327,8 +340,37 @@ namespace GameMode {
 
 	inline __int64 PickTeam(__int64 a1, unsigned __int8 a2, __int64 a3)
 	{
-		return 3;
+		uint8 Ret = NextIdx;
+		CurrentPlayersOnTeam++;
+
+		if (CurrentPlayersOnTeam == MaxPlayersOnTeam)
+		{
+			NextIdx++;
+			CurrentPlayersOnTeam = 0;
+		}
+		return Ret;
 	};
+
+	static __int64 (*StartAircraftPhaseOG)(AFortGameModeAthena* GameMode, char a2) = nullptr;
+	__int64 StartAircraftPhase(AFortGameModeAthena* GameMode, char a2)
+	{
+		Log("StartAircraftPhase Called!");
+		return StartAircraftPhaseOG(GameMode, a2);
+	}
+
+	__int64 (*OnAircraftEnteredDropZoneOG)(AFortGameModeAthena*);
+	__int64 OnAircraftEnteredDropZone(AFortGameModeAthena* a1)
+	{
+		Log("OnAircraftEnteredDropZone Called!");
+		return OnAircraftEnteredDropZoneOG(a1);
+	}
+
+	static inline void (*OriginalOnAircraftExitedDropZone)(AFortGameModeAthena* GameMode, AFortAthenaAircraft* FortAthenaAircraft);
+	void OnAircraftExitedDropZone(AFortGameModeAthena* GameMode, AFortAthenaAircraft* FortAthenaAircraft)
+	{
+		Log("OnAircraftExitedDropZone Called!");
+		return OriginalOnAircraftExitedDropZone(GameMode, FortAthenaAircraft);
+	}
 
 	void Hook() {
 		MH_CreateHook((LPVOID)(ImageBase + 0x5f9cb9c), ReadyToStartMatch, (LPVOID*)&ReadyToStartMatchOG);
@@ -338,6 +380,12 @@ namespace GameMode {
 		MH_CreateHook((LPVOID)(ImageBase + 0x5fa67bc), StartNewSafeZonePhase, (LPVOID*)&StartNewSafeZonePhaseOG);
 
 		MH_CreateHook((LPVOID)(ImageBase + 0x5f9b9c8), PickTeam, nullptr);
+
+		MH_CreateHook((LPVOID)(ImageBase + 0x5fa4538), StartAircraftPhase, (LPVOID*)&StartAircraftPhaseOG);
+
+		MH_CreateHook((LPVOID)(ImageBase + 0x5F99274), OnAircraftEnteredDropZone, (LPVOID*)&OnAircraftEnteredDropZoneOG);
+
+		MH_CreateHook((LPVOID)(ImageBase + 0x5F992F8), OnAircraftExitedDropZone, (LPVOID*)&OriginalOnAircraftExitedDropZone);
 
 		Log("Gamemode Hooked!");
 	}

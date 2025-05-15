@@ -37,4 +37,10 @@ namespace Vehicles {
 		Spawners.clear();
 		Log("Spawned vehicles");
 	}
+
+	void Hook() {
+		// Vtable offsets
+		// ServerAttemptExitVehicle_Validate    0x461 (1121)
+		// ServerAttemptExitVehicle_Implementation    0x462 (1122)
+	}
 }

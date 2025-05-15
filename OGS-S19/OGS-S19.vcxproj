@@ -141,11 +141,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Abilities.h" />
+    <ClInclude Include="Bots.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GameMode.h" />
+    <ClInclude Include="Globals.h" />
     <ClInclude Include="Inventory.h" />
     <ClInclude Include="Looting.h" />
     <ClInclude Include="Misc.h" />
+    <ClInclude Include="Net.h" />
     <ClInclude Include="PC.h" />
     <ClInclude Include="SDK\PropertyFixup.hpp" />
     <ClInclude Include="SDK\SDK.hpp" />
