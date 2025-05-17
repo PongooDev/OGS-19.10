@@ -3,6 +3,7 @@
 #include "Inventory.h"
 #include "Abilities.h"
 #include "Globals.h"
+#include "Bots.h"
 
 namespace GameMode {
 	uint8 NextIdx = 3;
@@ -83,6 +84,15 @@ namespace GameMode {
 		static bool Listening = false;
 		if (!Listening) {
 			Listening = true;
+
+			if (Globals::bBotsEnabled) {
+				Bots::CIDs = GetAllObjectsOfClass<UAthenaCharacterItemDefinition>();
+				Bots::Pickaxes = GetAllObjectsOfClass<UAthenaPickaxeItemDefinition>();
+				Bots::Backpacks = GetAllObjectsOfClass<UAthenaBackpackItemDefinition>();
+				Bots::Gliders = GetAllObjectsOfClass<UAthenaGliderItemDefinition>();
+				Bots::Contrails = GetAllObjectsOfClass<UAthenaSkyDiveContrailItemDefinition>();
+				Bots::Dances = GetAllObjectsOfClass<UAthenaDanceItemDefinition>();
+			}
 
 			auto Beacon = SpawnActor<AFortOnlineBeaconHost>({});
 			Beacon->ListenPort = 7777;
@@ -239,6 +249,8 @@ namespace GameMode {
 			Log("Pick Doesent Exist!");
 		}
 		//Pawn->CosmeticLoadout = PC->CosmeticLoadoutPC;
+		//((AFortPlayerStateAthena*)PlayerState)->HeroType = PC->CosmeticLoadoutPC.Character->HeroDefinition;
+		//((void (*)(APlayerState*, APawn*)) (ImageBase + 0x67b35f8))(PlayerState, Pawn);
 
 		for (size_t i = 0; i < GameMode->StartingItems.Num(); i++)
 		{
@@ -355,20 +367,51 @@ namespace GameMode {
 	__int64 StartAircraftPhase(AFortGameModeAthena* GameMode, char a2)
 	{
 		Log("StartAircraftPhase Called!");
+
+		if (Globals::bBotsEnabled) {
+			for (size_t i = 0; i < Bots::PlayerBotArray.size(); i++)
+			{
+				Bots::PlayerBotArray[i]->BotState = Bots::EBotState::PreBus;
+			}
+		}
+
 		return StartAircraftPhaseOG(GameMode, a2);
 	}
 
-	__int64 (*OnAircraftEnteredDropZoneOG)(AFortGameModeAthena*);
-	__int64 OnAircraftEnteredDropZone(AFortGameModeAthena* a1)
+	__int64 (*OnAircraftEnteredDropZoneOG)(AFortGameModeAthena* GameMode, AFortAthenaAircraft* Aircraft);
+	__int64 OnAircraftEnteredDropZone(AFortGameModeAthena* GameMode, AFortAthenaAircraft* Aircraft)
 	{
 		Log("OnAircraftEnteredDropZone Called!");
-		return OnAircraftEnteredDropZoneOG(a1);
+
+		if (Globals::bBotsEnabled) {
+			for (size_t i = 0; i < Bots::PlayerBotArray.size(); i++)
+			{
+				Bots::PlayerBotArray[i]->BotState = Bots::EBotState::Bus;
+			}
+		}
+
+		auto GameState = ((AFortGameStateAthena*)UWorld::GetWorld()->GameState);
+		return OnAircraftEnteredDropZoneOG(GameMode, Aircraft);
 	}
 
 	static inline void (*OriginalOnAircraftExitedDropZone)(AFortGameModeAthena* GameMode, AFortAthenaAircraft* FortAthenaAircraft);
 	void OnAircraftExitedDropZone(AFortGameModeAthena* GameMode, AFortAthenaAircraft* FortAthenaAircraft)
 	{
 		Log("OnAircraftExitedDropZone Called!");
+
+		if (Globals::bBotsEnabled) { // kick all bots out of the bus
+			for (size_t i = 0; i < Bots::PlayerBotArray.size(); i++)
+			{
+				AFortGameStateAthena* GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
+
+				Bots::PlayerBotArray[i]->Pawn->K2_TeleportTo(GameState->GetAircraft(0)->K2_GetActorLocation(), {});
+				Bots::PlayerBotArray[i]->Pawn->BeginSkydiving(true);
+				Bots::PlayerBotArray[i]->TimeToNextAction = 0;
+				Bots::PlayerBotArray[i]->LikelyHoodToDoAction = 0;
+				Bots::PlayerBotArray[i]->BotState = Bots::EBotState::Skydiving;
+			}
+		}
+
 		return OriginalOnAircraftExitedDropZone(GameMode, FortAthenaAircraft);
 	}
 

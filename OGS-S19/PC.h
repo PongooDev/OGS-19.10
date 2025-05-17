@@ -2,6 +2,7 @@
 #include "framework.h"
 #include "Looting.h"
 #include "Vehicles.h"
+#include "Bots.h"
 
 namespace PC {
 	void (*ServerAcknowledgePossessionOG)(AFortPlayerControllerAthena* PC, APawn* Pawn);
@@ -32,6 +33,8 @@ namespace PC {
 		}
 		AFortGameModeAthena* GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
 		AFortGameStateAthena* GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
+
+		UGameplayStatics::GetDefaultObj()->GetAllActorsOfClass(UWorld::GetWorld(), AFortPlayerStartWarmup::StaticClass(), &PlayerStarts);
 		
 		static bool setupWorld = false;
 		if (!setupWorld) {
@@ -39,6 +42,31 @@ namespace PC {
 			Looting::DestroyFloorLootSpawners();
 
 			Vehicles::SpawnVehicles();
+		}
+
+		for (int i = 0; i < 99; i++) {
+			if (PlayerStarts.Num() <= 0)
+			{
+				Log("NO PLAYER STARTS!!");
+				continue;
+			}
+			AActor* SpawnLocator = PlayerStarts[UKismetMathLibrary::GetDefaultObj()->RandomIntegerInRange(0, PlayerStarts.Num() - 1)];
+
+			static auto PhoebeSpawnerData = StaticLoadObject<UClass>("/Game/Athena/AI/Phoebe/BP_AISpawnerData_Phoebe.BP_AISpawnerData_Phoebe_C");
+			if (SpawnLocator && PhoebeSpawnerData)
+			{
+				//Bots::SpawnPlayerBots(SpawnLocator);
+
+				FTransform Transform{};
+				Transform.Translation = SpawnLocator->K2_GetActorLocation();
+				Transform.Rotation = FQuat();
+				Transform.Scale3D = FVector{ 1,1,1 };
+
+				((UAthenaAISystem*)UWorld::GetWorld()->AISystem)->AISpawner->RequestSpawn(UFortAthenaAIBotSpawnerData::CreateComponentListFromClass(PhoebeSpawnerData, UWorld::GetWorld()), Transform);
+			}
+			else {
+				Log("not so great...");
+			}
 		}
 
 		return ServerReadyToStartMatchOG(PC);

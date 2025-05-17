@@ -1,5 +1,6 @@
 #pragma once
 #include "framework.h"
+#include "Bots.h"
 
 namespace Tick {
 	void (*ServerReplicateActors)(void*) = decltype(ServerReplicateActors)(ImageBase + 0x55497b4);
@@ -19,6 +20,10 @@ namespace Tick {
 			ServerReplicateActors(Driver->ReplicationDriver);*/
 
 		ServerReplicateActors(Driver->ReplicationDriver);
+
+		if (Globals::bBotsEnabled) {
+			Bots::PlayerBotTick();
+		}
 
 		return TickFlushOG(Driver, DeltaTime);
 	}

@@ -45,6 +45,8 @@ static FVector* (*PickSupplyDropLocationOG)(AFortAthenaMapInfo* MapInfo, FVector
 static void* (*StaticFindObjectOG)(UClass*, UObject* Package, const wchar_t* OrigInName, bool ExactClass) = decltype(StaticFindObjectOG)(ImageBase + 0xbc9b40);
 static void* (*StaticLoadObjectOG)(UClass* Class, UObject* InOuter, const TCHAR* Name, const TCHAR* Filename, uint32_t LoadFlags, UObject* Sandbox, bool bAllowObjectReconciliation, void*) = decltype(StaticLoadObjectOG)(ImageBase + 0x10a6fb8);
 
+static TArray<AActor*> PlayerStarts;
+
 void Log(const std::string& msg)
 {
 	static bool firstCall = true;

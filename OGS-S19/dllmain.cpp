@@ -6,6 +6,7 @@
 #include "Net.h"
 #include "Looting.h"
 #include "Misc.h"
+#include "Bots.h"
 #include "Tick.h"
 #include "Globals.h"
 
@@ -33,6 +34,8 @@ void Hook() {
     Abilities::Hook();
     Inventory::Hook();
     Looting::Hook();
+
+    Bots::Hook();
 
     Misc::Hook();
     Net::Hook();

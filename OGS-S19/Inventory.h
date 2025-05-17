@@ -547,6 +547,9 @@ namespace Inventory {
 		if (!Pawn)
 			return;
 
+		if (Pawn->PlayerState->bIsABot)
+			return;
+
 		if (Pawn->CurrentWeapon)
 			UpdateLoadedAmmo((AFortPlayerController*)Pawn->Controller, ((AFortPlayerPawn*)Pawn)->CurrentWeapon);
 
