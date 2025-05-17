@@ -19,13 +19,13 @@ void InitConsole() {
 }
 
 void LoadWorld() {
+    UWorld::GetWorld()->OwningGameInstance->LocalPlayers.Remove(0);
     if (!Globals::bCreativeEnabled && !Globals::bSTWEnabled) {
         UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Artemis_Terrain", nullptr);
     }
     else if (Globals::bCreativeEnabled) {
         UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Creative_NoApollo_Terrain", nullptr);
     }
-    UWorld::GetWorld()->OwningGameInstance->LocalPlayers.Remove(0);
 }
 
 void Hook() {
@@ -50,12 +50,19 @@ DWORD Main(LPVOID) {
     MH_Initialize();
     Log("MinHook Initialised!");
 
+    while (UEngine::GetEngine() == 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
     Hook();
 
     *(bool*)(InSDKUtils::GetImageBase() + 0xb30cf9f) = false; //GIsClient
+    *(bool*)(InSDKUtils::GetImageBase() + 0xb30cf9f + 1) = true; //GIsServer
 
     Sleep(1000);
     LoadWorld();
+
+    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"log LogFortUIDirector NoLogging", nullptr);
+    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"log LogFortUIManager NoLogging", nullptr);
 
     return 0;
 }

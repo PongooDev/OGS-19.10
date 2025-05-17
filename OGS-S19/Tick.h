@@ -1,6 +1,7 @@
 #pragma once
 #include "framework.h"
 #include "Bots.h"
+#include "Globals.h"
 
 namespace Tick {
 	void (*ServerReplicateActors)(void*) = decltype(ServerReplicateActors)(ImageBase + 0x55497b4);
@@ -10,6 +11,9 @@ namespace Tick {
 	{
 		if (!Driver)
 			return;
+
+		AFortGameModeAthena* GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
+		AFortGameStateAthena* GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
 
 		if (!Driver->ReplicationDriver)
 		{
@@ -21,9 +25,22 @@ namespace Tick {
 
 		ServerReplicateActors(Driver->ReplicationDriver);
 
-		if (Globals::bBotsEnabled) {
-			Bots::PlayerBotTick();
+		if (GameState->GamePhase == EAthenaGamePhase::Warmup
+			&& (GameMode->NumPlayers + GameMode->NumBots) >= Globals::MinPlayersForEarlyStart
+			&& GameState->WarmupCountdownEndTime > UGameplayStatics::GetTimeSeconds(UWorld::GetWorld()) + 10.f) {
+
+			auto TS = UGameplayStatics::GetTimeSeconds(UWorld::GetWorld());
+			auto DR = 10.f;
+
+			GameState->WarmupCountdownEndTime = TS + DR;
+			GameMode->WarmupCountdownDuration = DR;
+			GameState->WarmupCountdownStartTime = TS;
+			GameMode->WarmupEarlyCountdownDuration = DR;
 		}
+
+		/*if (Globals::bBotsEnabled) {
+			Bots::PlayerBotTick();
+		}*/
 
 		return TickFlushOG(Driver, DeltaTime);
 	}

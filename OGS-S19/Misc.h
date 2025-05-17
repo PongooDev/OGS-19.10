@@ -36,6 +36,10 @@ namespace Misc {
         MH_CreateHook((LPVOID)(ImageBase + 0x258d0dc), nullFunc, nullptr);
         MH_CreateHook((LPVOID)(ImageBase + 0x677f0e4), nullFunc, nullptr);
 
+        // No Localplayer logs fix
+        MH_CreateHook((LPVOID)(ImageBase + 0x257CC1C), nullFunc, nullptr);
+        //MH_CreateHook((LPVOID)(ImageBase + 0xD34D3C), nullFunc, nullptr);
+
         Log("Misc Hooked!");
     }
 }

@@ -8,7 +8,6 @@ namespace PC {
 	void (*ServerAcknowledgePossessionOG)(AFortPlayerControllerAthena* PC, APawn* Pawn);
 	inline void ServerAcknowledgePossession(AFortPlayerControllerAthena* PC, APawn* Pawn)
 	{
-		Log("ServerAck Called!");
 		PC->AcknowledgedPawn = Pawn;
 
 		return ServerAcknowledgePossessionOG(PC, Pawn);
@@ -17,7 +16,6 @@ namespace PC {
 	inline void (*ServerLoadingScreenDroppedOG)(AFortPlayerControllerAthena* PC);
 	inline void ServerLoadingScreenDropped(AFortPlayerControllerAthena* PC)
 	{
-		Log("ServerLoadingScreenDropped Called!");
 		AFortGameStateAthena* GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
 		AFortGameModeAthena* GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
 		auto Pawn = (AFortPlayerPawn*)PC->Pawn;
@@ -44,7 +42,7 @@ namespace PC {
 			Vehicles::SpawnVehicles();
 		}
 
-		for (int i = 0; i < 99; i++) {
+		for (int i = 0; i < 1; i++) {
 			if (PlayerStarts.Num() <= 0)
 			{
 				Log("NO PLAYER STARTS!!");

@@ -5,4 +5,6 @@ namespace Globals {
 	bool bSTWEnabled = false;
 
 	bool bBotsEnabled = true;
+
+	int MinPlayersForEarlyStart = 100;
 }

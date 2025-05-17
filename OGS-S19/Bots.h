@@ -577,6 +577,11 @@ namespace Bots {
         bot->PC->RunBehaviorTree(BehaviorTree);
         bot->PC->UseBlackboard(BehaviorTree->BlackboardAsset, &bot->PC->Blackboard);
 
+        static auto Name1 = UKismetStringLibrary::Conv_StringToName(TEXT("AIEvaluator_Global_GamePhaseStep"));
+        static auto Name2 = UKismetStringLibrary::Conv_StringToName(TEXT("AIEvaluator_Global_GamePhase"));
+        bot->PC->Blackboard->SetValueAsEnum(Name1, (uint8)EAthenaGamePhaseStep::Warmup);
+        bot->PC->Blackboard->SetValueAsEnum(Name2, (uint8)EAthenaGamePhase::Warmup);
+
         bot->Pawn->SetMaxHealth(100);
         bot->Pawn->SetHealth(100);
         bot->Pawn->SetMaxShield(100);
@@ -586,218 +591,11 @@ namespace Bots {
         Log("Bot Spawned With DisplayName: " + bot->DisplayName.ToString());
     }
 
-    void PlayerBotTick() {
-        if (!PlayerBotArray.empty()) {
-            if (UKismetMathLibrary::GetDefaultObj()->RandomBoolWithWeight(0.001f))
-            {
-                FreeDeadBots();
-            }
-        }
-        else {
-            return;
-        }
-
-        auto GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
-        auto Math = (UKismetMathLibrary*)UKismetMathLibrary::StaticClass()->DefaultObject;
-        auto GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
-        auto Statics = (UGameplayStatics*)UGameplayStatics::StaticClass()->DefaultObject;
-
-        for (PlayerBot* bot : PlayerBotArray) {
-            if (!bot || !bot->Pawn || !bot->PC || !bot->PlayerState || bot->bIsDead)
-                continue;
-
-            if (bot->Pawn->IsDead()) {
-                bot->bIsDead = true;
-                for (size_t i = 0; i < GameMode->AliveBots.Num(); i++)
-                {
-                    if (GameMode->AliveBots[i]->Pawn == bot->Pawn) {
-                        GameMode->AliveBots.Remove(i);
-                    }
-                }
-                GameState->PlayersLeft--;
-                GameState->OnRep_PlayerBotsLeft();
-                FreeDeadBots();
-            }
-
-            if (bot->tick_counter <= 150) {
-                bot->tick_counter++;
-                continue;
-            }
-
-            if (bot->bIsMoving) {
-                FVector Vel = bot->Pawn->GetVelocity();
-                float Speed = sqrtf(Vel.X * Vel.X + Vel.Y * Vel.Y);
-
-                if (Speed < 0.5f) {
-                    if (!bot->IsPickaxeEquiped()) {
-                        bot->EquipPickaxe();
-                        bot->bPickaxeEquiped = true;
-                    }
-                    bot->Pawn->PawnStartFire(0);
-                }
-                else {
-                    bot->Pawn->PawnStopFire(0);
-                }
-            }
-
-            if (bot->bIsMoving && UKismetMathLibrary::GetDefaultObj()->RandomBoolWithWeight(0.001)) {
-                bot->Pawn->Jump();
-            }
-
-            if (bot->BotState == EBotState::Warmup) {
-                bot->bIsMoving = true;
-                bot->Pawn->AddMovementInput(bot->Pawn->GetActorForwardVector(), 1, true);
-            }
-            else if (bot->BotState == EBotState::PreBus) {
-                bot->Pawn->SetHealth(100);
-                bot->Pawn->SetShield(100);
-                if (bot->bIsMoving) {
-                    bot->Pawn->PawnStopFire(0);
-                    bot->bIsMoving = false;
-                }
-                if (!bot->bHasThankedBusDriver && UKismetMathLibrary::GetDefaultObj()->RandomBoolWithWeight(0.0005f))
-                {
-                    bot->bHasThankedBusDriver = true;
-                    bot->PC->ThankBusDriver();
-                }
-            }
-            else if (bot->BotState == EBotState::Bus) {
-                bot->Pawn->SetShield(0);
-                if (bot->bIsMoving) {
-                    bot->Pawn->PawnStopFire(0);
-                    bot->bIsMoving = false;
-                }
-                if (!bot->bHasThankedBusDriver && UKismetMathLibrary::GetDefaultObj()->RandomBoolWithWeight(0.0005f))
-                {
-                    bot->bHasThankedBusDriver = true;
-                    bot->PC->ThankBusDriver();
-                }
-
-                if (!bot->TimeToNextAction) {
-                    bot->TimeToNextAction = UGameplayStatics::GetDefaultObj()->GetTimeSeconds(UWorld::GetWorld());
-                    bot->LikelyHoodToDoAction = 0.0008f;
-                }
-                
-                if (UKismetMathLibrary::GetDefaultObj()->RandomBoolWithWeight(0.0025f)) {
-                    if (!bot->bHasThankedBusDriver && UKismetMathLibrary::GetDefaultObj()->RandomBoolWithWeight(0.5f)) {
-                        bot->bHasThankedBusDriver = true;
-                        bot->PC->ThankBusDriver();
-                    }
-                    bot->Pawn->K2_TeleportTo(GameState->GetAircraft(0)->K2_GetActorLocation(), {});
-                    bot->Pawn->BeginSkydiving(true);
-                    bot->TimeToNextAction = 0;
-                    bot->LikelyHoodToDoAction = 0;
-                    bot->BotState = EBotState::Skydiving;
-                }
-            }
-            else if (bot->BotState == EBotState::Skydiving) {
-                if (bot->bIsMoving) {
-                    bot->Pawn->PawnStopFire(0);
-                    bot->bIsMoving = false;
-                }
-                if (!bot->Pawn->bIsSkydiving) {
-                    bot->Pawn->bInGliderRedeploy = true;
-                    bot->BotState = EBotState::Gliding;
-                    Log("oh well");
-                }
-                else {
-                    auto BotPos = bot->Pawn->K2_GetActorLocation();
-                    FVector Nearest = bot->FindNearestPlayerOrBot();
-                    AActor* NearestChest = bot->FindNearestChest();
-                    AActor* NearestPickup = (AActor*)bot->FindNearestPickup();
-                    if (!NearestChest || !NearestPickup) {
-                        continue;
-                    }
-                    AActor* NearestLootable = NearestChest;
-                    if (NearestChest->GetDistanceTo(bot->Pawn) > NearestPickup->GetDistanceTo(bot->Pawn)) {
-                        NearestLootable = NearestPickup;
-                    }
-                    if (!Nearest.IsZero()) {
-                        float Dist = Math->Vector_Distance(BotPos, Nearest);
-                        if (Dist < 3000.f) {
-                            auto TestRot = Math->FindLookAtRotation(Nearest, BotPos);
-
-                            bot->PC->SetControlRotation(TestRot);
-                            bot->PC->K2_SetActorRotation(TestRot, true);
-                            bot->Pawn->AddMovementInput(bot->Pawn->GetActorForwardVector(), 1.2f, true);
-                        }
-                        else {
-                            auto TestRot = Math->FindLookAtRotation(BotPos, NearestLootable->K2_GetActorLocation());
-
-                            bot->PC->SetControlRotation(TestRot);
-                            bot->PC->K2_SetActorRotation(TestRot, true);
-                            bot->LookAt(NearestLootable);
-
-                            bot->PC->MoveToActor(NearestLootable, 0.f, true, false, true, nullptr, true);
-                            bot->Pawn->AddMovementInput(UKismetMathLibrary::GetDefaultObj()->NegateVector(bot->Pawn->GetActorUpVector()), 1, true);
-                            //bot->Pawn->AddMovementInput(bot->Pawn->GetActorForwardVector(), 1.2f, true);
-                        }
-                    }
-                    else {
-                        auto TestRot = Math->FindLookAtRotation(BotPos, NearestLootable->K2_GetActorLocation());
-
-                        bot->PC->SetControlRotation(TestRot);
-                        bot->PC->K2_SetActorRotation(TestRot, true);
-                        bot->LookAt(NearestLootable);
-
-                        bot->PC->MoveToActor(NearestLootable, 0.f, true, false, true, nullptr, true);
-                        bot->Pawn->AddMovementInput(UKismetMathLibrary::GetDefaultObj()->NegateVector(bot->Pawn->GetActorUpVector()), 1, true);
-                        //bot->Pawn->AddMovementInput(bot->Pawn->GetActorForwardVector(), 1.2f, true);
-                    }
-                }
-            }
-            else if (bot->BotState == EBotState::Gliding) {
-                FVector Vel = bot->Pawn->GetVelocity();
-                float Speed = Vel.Z;
-                if (Speed > 0.025f) {
-                    bot->BotState = EBotState::Landed;
-                }
-
-                auto BotPos = bot->Pawn->K2_GetActorLocation();
-                FVector Nearest = bot->FindNearestPlayerOrBot();
-                AActor* NearestChest = bot->FindNearestChest();
-                AActor* NearestPickup = (AActor*)bot->FindNearestPickup();
-                if (!NearestChest || !NearestPickup) {
-                    continue;
-                }
-                AActor* NearestLootable = NearestChest;
-                if (NearestChest->GetDistanceTo(bot->Pawn) > NearestPickup->GetDistanceTo(bot->Pawn)) {
-                    NearestLootable = NearestPickup;
-                }
-                float Dist = Math->Vector_Distance(BotPos, Nearest);
-                if (!Nearest.IsZero()) {
-                    if (Dist < 3500.f) {
-                        auto TestRot = Math->FindLookAtRotation(Nearest, BotPos);
-
-                        bot->PC->SetControlRotation(TestRot);
-                        bot->PC->K2_SetActorRotation(TestRot, true);
-                        bot->Pawn->AddMovementInput(bot->Pawn->GetActorForwardVector(), 1.2f, true);
-                    }
-                    else {
-                        auto TestRot = Math->FindLookAtRotation(BotPos, NearestLootable->K2_GetActorLocation());
-
-                        bot->PC->SetControlRotation(TestRot);
-                        bot->PC->K2_SetActorRotation(TestRot, true);
-                        bot->LookAt(NearestLootable);
-
-                        bot->PC->MoveToActor(NearestLootable, 0.f, true, false, true, nullptr, true);
-                        //bot->Pawn->AddMovementInput(bot->Pawn->GetActorForwardVector(), 1.2f, true);
-                    }
-                }
-                else {
-                    auto TestRot = Math->FindLookAtRotation(BotPos, NearestLootable->K2_GetActorLocation());
-
-                    bot->PC->SetControlRotation(TestRot);
-                    bot->PC->K2_SetActorRotation(TestRot, true);
-                    bot->LookAt(NearestLootable);
-
-                    bot->PC->MoveToActor(NearestLootable, 0.f, true, false, true, nullptr, true);
-                    //bot->Pawn->AddMovementInput(bot->Pawn->GetActorForwardVector(), 1.2f, true);
-                }
-            }
-
-            bot->tick_counter++;
-        }
+    void (*OnPossessedPawnDiedOG)(AFortAthenaAIBotController* PC, AActor* DamagedActor, float Damage, AController* InstigatedBy, AActor* DamageCauser, FVector HitLocation, UPrimitiveComponent* HitComp, FName BoneName, FVector Momentum);
+    void OnPossessedPawnDied(AFortAthenaAIBotController* PC, AActor* DamagedActor, float Damage, AController* InstigatedBy, AActor* DamageCauser, FVector HitLocation, UPrimitiveComponent* HitComp, FName BoneName, FVector Momentum)
+    {
+        Log("OnPossessedPawnDied Called!");
+        return OnPossessedPawnDiedOG(PC, DamagedActor, Damage, InstigatedBy, DamageCauser, HitLocation, HitComp, BoneName, Momentum);
     }
 
     inline void (*OnPawnAISpawnedOG)(AActor* Controller, AFortPlayerPawnAthena* Pawn);
@@ -829,6 +627,7 @@ namespace Bots {
 
         if (Pawn->Controller->Class->GetFullName().contains("Phoebe")) {
             OnPawnAISpawnedOG(Controller, Pawn);
+            AFortGameModeAthena* GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
             AFortGameStateAthena* GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
             AFortAthenaAIBotController* BotPC = (AFortAthenaAIBotController*)Pawn->Controller;
             if (BotPC) {
@@ -836,6 +635,8 @@ namespace Bots {
                 ((AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode)->AliveBots.Add(BotPC);
                 GameState->PlayersLeft++;
                 GameState->OnRep_PlayerBotsLeft();
+                GameMode->NumBots++;
+                
                 return InitPlayerBot(Pawn, BotPC, BotPlayerState);
                 
                 for (auto& Item : ((AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode)->StartingItems)
@@ -861,6 +662,8 @@ namespace Bots {
     void Hook() {
         MH_CreateHook((LPVOID)(ImageBase + 0x5CED164), OnPawnAISpawned, (LPVOID*)&OnPawnAISpawnedOG);
         //HookVTable(AFortAthenaAIBotController::StaticClass(), 263, OnPawnAISpawned, (LPVOID*)&OnPawnAISpawnedOG);
+
+        //MH_CreateHook((LPVOID)(ImageBase + 0x215B390), OnPossessedPawnDied, (LPVOID*)&OnPossessedPawnDiedOG);
 
         Log("Bots Hooked!");
     }

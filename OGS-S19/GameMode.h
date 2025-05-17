@@ -57,7 +57,7 @@ namespace GameMode {
 			GameMode->GameSession->SessionName = UKismetStringLibrary::Conv_StringToName(FString(L"GameSession"));
 
 			auto TS = UGameplayStatics::GetTimeSeconds(UWorld::GetWorld());
-			auto DR = 60.f;
+			auto DR = 120.f;
 
 			GameState->WarmupCountdownEndTime = TS + DR;
 			GameMode->WarmupCountdownDuration = DR;
@@ -192,7 +192,7 @@ namespace GameMode {
 		else
 		{
 			auto TS = UGameplayStatics::GetTimeSeconds(UWorld::GetWorld());
-			auto DR = 60.f;
+			auto DR = 120.f;
 
 			GameState->WarmupCountdownEndTime = TS + DR;
 			GameMode->WarmupCountdownDuration = DR;
@@ -269,7 +269,6 @@ namespace GameMode {
 
 	static inline void (*StartNewSafeZonePhaseOG)(AFortGameModeAthena* GameMode, int32 a2);
 	static void StartNewSafeZonePhase(AFortGameModeAthena* GameMode, int32 a2) {
-		Log("StartNewSafeZonePhase Called!");
 		auto GameState = AFortGameStateAthena::GetDefaultObj();
 
 		FFortSafeZoneDefinition* SafeZoneDefinition = &GameState->MapInfo->SafeZoneDefinition;
@@ -278,6 +277,7 @@ namespace GameMode {
 
 		auto Duration = 30.f;
 		auto HoldDuration = 10.f;
+		static auto DPS = 1.f;
 		static int ZoneIndex = 0;
 
 		switch (ZoneIndex) {
@@ -288,18 +288,22 @@ namespace GameMode {
 		case 1:
 			Duration = 120.f;
 			HoldDuration = 110.f;
+			DPS = 2.f;
 			break;
 		case 2:
 			Duration = 90.f;
 			HoldDuration = 110.f;
+			DPS = 3.f;
 			break;
 		case 3:
 			Duration = 95.f;
 			HoldDuration = 95.f;
+			DPS = 4.f;
 			break;
 		case 4:
 			Duration = 90.f;
 			HoldDuration = 90.f;
+			DPS = 5.f;
 			break;
 		case 5:
 			Duration = 50.f;
@@ -308,6 +312,7 @@ namespace GameMode {
 		case 6:
 			Duration = 50.f;
 			HoldDuration = 70.f;
+			DPS = 10.f;
 			break;
 		case 7:
 			Duration = 50.f;
@@ -316,6 +321,7 @@ namespace GameMode {
 		case 8:
 			Duration = 35.f;
 			HoldDuration = 60.f;
+			DPS = 10.f;
 			break;
 		case 9:
 			Duration = 20.f;
@@ -341,6 +347,7 @@ namespace GameMode {
 
 		GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime = UGameplayStatics::GetTimeSeconds(UWorld::GetWorld()) + HoldDuration;
 		GameMode->SafeZoneIndicator->SafeZoneFinishShrinkTime = GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime + Duration;
+		GameState->SafeZoneDamage = DPS;
 		ZoneIndex++;
 
 		GameState->OnRep_SafeZoneDamage();
@@ -366,8 +373,6 @@ namespace GameMode {
 	static __int64 (*StartAircraftPhaseOG)(AFortGameModeAthena* GameMode, char a2) = nullptr;
 	__int64 StartAircraftPhase(AFortGameModeAthena* GameMode, char a2)
 	{
-		Log("StartAircraftPhase Called!");
-
 		if (Globals::bBotsEnabled) {
 			for (size_t i = 0; i < Bots::PlayerBotArray.size(); i++)
 			{
@@ -381,8 +386,6 @@ namespace GameMode {
 	__int64 (*OnAircraftEnteredDropZoneOG)(AFortGameModeAthena* GameMode, AFortAthenaAircraft* Aircraft);
 	__int64 OnAircraftEnteredDropZone(AFortGameModeAthena* GameMode, AFortAthenaAircraft* Aircraft)
 	{
-		Log("OnAircraftEnteredDropZone Called!");
-
 		if (Globals::bBotsEnabled) {
 			for (size_t i = 0; i < Bots::PlayerBotArray.size(); i++)
 			{
@@ -397,8 +400,6 @@ namespace GameMode {
 	static inline void (*OriginalOnAircraftExitedDropZone)(AFortGameModeAthena* GameMode, AFortAthenaAircraft* FortAthenaAircraft);
 	void OnAircraftExitedDropZone(AFortGameModeAthena* GameMode, AFortAthenaAircraft* FortAthenaAircraft)
 	{
-		Log("OnAircraftExitedDropZone Called!");
-
 		if (Globals::bBotsEnabled) { // kick all bots out of the bus
 			for (size_t i = 0; i < Bots::PlayerBotArray.size(); i++)
 			{

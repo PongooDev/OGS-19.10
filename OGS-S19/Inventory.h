@@ -356,7 +356,6 @@ namespace Inventory {
 	inline void (*ServerHandlePickupOG)(AFortPlayerPawn* Pawn, AFortPickup* Pickup, float InFlyTime, FVector InStartDirection, bool bPlayPickupSound);
 	inline void ServerHandlePickup(AFortPlayerPawnAthena* Pawn, AFortPickup* Pickup, float InFlyTime, const FVector& InStartDirection, bool bPlayPickupSound)
 	{
-		Log("ServerHandlePickup Called!");
 		if (!Pickup || !Pawn || !Pawn->Controller || Pickup->bPickedUp)
 			return;
 
@@ -543,7 +542,6 @@ namespace Inventory {
 	inline void (*NetMulticast_Athena_BatchedDamageCuesOG)(AFortPlayerPawnAthena* Pawn, FAthenaBatchedDamageGameplayCues_Shared SharedData, FAthenaBatchedDamageGameplayCues_NonShared NonSharedData);
 	void NetMulticast_Athena_BatchedDamageCues(AFortPlayerPawnAthena* Pawn, FAthenaBatchedDamageGameplayCues_Shared SharedData, FAthenaBatchedDamageGameplayCues_NonShared NonSharedData)
 	{
-		Log("NetMulticast_Athena_BatchedDamageCues Called!");
 		if (!Pawn)
 			return;
 
@@ -571,7 +569,7 @@ namespace Inventory {
 
 		MH_CreateHook((LPVOID)(ImageBase + 0x1341194), NetMulticast_Athena_BatchedDamageCues, (LPVOID*)&NetMulticast_Athena_BatchedDamageCuesOG);
 
-		//MH_CreateHook((LPVOID)(ImageBase + 0x122EDEC), OnReload, (LPVOID*)&OnReloadOG);
+		//MH_CreateHook((LPVOID)(ImageBase + 0xDEC23B70), OnReload, (LPVOID*)&OnReloadOG);
 
 		Log("Inventory Hooked!");
 	}
